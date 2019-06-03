@@ -5,14 +5,14 @@ var admin = require('firebase-admin');
 
 module.exports = (req, res, next) => {
   try{
-    let token = req.headers["authorization"];
+    let token = req.headers["x-token"];
     if (token) {
         admin.auth().verifyIdToken(token)
             .then(decodedToken => {
                 var uid = decodedToken.uid;
                 admin.auth().getUser(uid).then(user => {
                    req.user = user
-                //    console.log("----------------------req from middleware",req.user)
+                  //  console.log("----------------------req from middleware",req.user)
                     next();
                 })
             }).catch(err => {
@@ -27,18 +27,13 @@ module.exports = (req, res, next) => {
             message: "No token provided"
         });
     }
+    // console.log('body',req.body)
+    // req.user = {
+    //   email: req.body.email
+    // }
+    // next();
   }catch(err){
     console.log( err)
   }
     
 };
-
-// module.exports = (req, res, next) => {
-
-//             var uid = "T0EgBEN6QMO1ObjFpsOyGXMMEQo2";
-//             admin.auth().getUser(uid).then(user => {
-//                 req.user = user
-//                 console.log("----------------------req from middleware", req.user.email)
-//                 next();
-//             })
-// };

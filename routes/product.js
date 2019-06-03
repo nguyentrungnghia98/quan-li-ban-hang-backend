@@ -1,0 +1,169 @@
+var async = require('asyncawait/async');
+var await = require('asyncawait/await');
+const { ObjectID } = require("mongodb");
+const getUser = require("../middlewares/get-user");
+const Product = require("../models/product");
+
+module.exports = (router) => {
+
+  router
+    .route("/product")
+    .get(getUser, (req, res, next) => {
+      Product.find({}, (err, products) => {
+        if (err) return next(err);
+        if (products) {
+          res.json({
+            pagination:{
+              current_page: 1,
+              next_page: 2,
+              prev_page: 0,
+              limit: 10
+            },
+            results:{
+              objects:{
+                count: products.length,
+                rows: products,
+              }
+            }
+          });
+        } else {
+          res.status(403).json({
+            success: false,
+            message: "Products is not exist!"
+          });
+        }
+      });
+    })
+    .post(getUser,async (req, res, next) => {
+      if(!req.body.name) {
+        res.status(403).json({
+          success: false,
+          message: "Property name is required!"
+        });
+        return next()
+      } 
+      if(!req.body.price) {
+        res.status(403).json({
+          success: false,
+          message: "Property price is required!"
+        });
+        return next()
+      }   
+      
+      let product = new Product({
+        name: req.body.name,
+        description: req.body.description || "",
+        list_image: req.body.list_image,
+        price: req.body.price,
+        status: req.body.status || 1,
+        categories: req.body.categories,
+      })
+      await product.save(err => {
+        if (err) {
+          console.log(err)
+          res.status(403).json({
+            success: false,
+            message: err
+          });
+          return next()
+        }
+      })
+      res.json({
+        results:{
+          object: product
+        }
+        
+      });
+    })
+    .delete(getUser, (req, res, next) => {
+      console.log('query',req.query)
+      let items = JSON.parse(req.query.items)
+      console.log('items',items)
+      if(!items || items.length == 0){ 
+        res.status(403).json({
+          error:'ids is empty'
+        })
+      }else{
+        Product.remove({'_id':{'$in':items}}, (err,result)=>{
+          if(err) return res.status(403).json({
+            err
+          })
+          req.json({
+            success:true,
+            results
+          })
+        })
+      }
+    })
+  router
+    .route("/product/:id")
+    .get(getUser, (req, res, next) => {
+      //5cf3f5f2a66abe460cadb890
+      console.log('Request Id:', req.params.id);
+      Product.findOne({ _id: ObjectID(req.params.id) }, (err, product) => {
+        if (err) return next(err);
+        if (product) {
+          res.json({
+            results:{
+              object: product
+            }
+            
+          });
+        } else {
+          res.status(403).json({
+            success: false,
+            message: "Product is not exist!"
+          });
+        }
+      })
+    })
+    .post(getUser, (req, res, next) => {
+      let data = {}
+      if (req.body.name) data.name = req.body.name
+      if (req.body.description) data.description = req.body.description
+      if (req.body.list_image) data.list_image = req.body.list_image
+      if (req.body.price) data.price = req.body.price
+      if (req.body.status) data.status = req.body.status
+      if (req.body.number_product) data.number_product = req.body.number_product
+      if (req.body.categories) data.categories = req.body.categories
+      if (Object.keys(data).length == 0) {
+        res.json({
+          success: false,
+          message: "Request sai!"
+        });
+      }else{
+        Product.findByIdAndUpdate(req.params.id, data, { new: true }, (err, product) => {
+          if (err) return next(res.status(500).json({
+            success:false,
+            message:err
+          }));
+          if (product) {
+            res.json({
+              results:{
+                object: product
+              }
+            });
+          } else {
+            res.status(403).json({
+              success: false,
+              message: "Product is not exist!"
+            });
+          }
+        })
+    
+      }
+    })
+    .delete(getUser, (req, res, next) => {
+      Product.findByIdAndRemove(req.params.id, (err, result) => {
+        if (err) return next(res.status(500).json({
+          success:false,
+          message:err
+        }));
+        res.json({
+          success: true,
+          message: result
+        });
+      })
+  
+    });
+}

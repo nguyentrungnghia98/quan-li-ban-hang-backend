@@ -8,8 +8,7 @@ const app = express();
 var admin = require('firebase-admin');
 var serviceAccount = require("./key/serviceAccountKey");
 let http = require('http').Server(app);
-var async = require('asyncawait/async');
-var await = require('asyncawait/await');
+
 
 try {
     admin.initializeApp({
@@ -39,8 +38,8 @@ app.use(bodyParser.urlencoded({ extended: false }));
 app.use(morgan("dev"));
 app.use(cors());
 
-const userRoutes = require("./routes/account");
-app.use("/api/", userRoutes);
+const userRoutes = require("./routes/api");
+app.use("/api", userRoutes);
 http.listen(port, err => {
     console.log("Start on port", port);
 });
