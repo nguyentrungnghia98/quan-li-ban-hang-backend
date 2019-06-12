@@ -8,6 +8,8 @@ const UserSchema = new Schema({
   address: String,
   phone: String,
   avatar: String,
+  isAccepted: Boolean,
+  isDenied: Boolean,
   updated: { type: Date, default: Date.now },
   created: { type: Date, default: Date.now }
 });

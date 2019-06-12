@@ -6,34 +6,40 @@ const User = require("../models/user");
 const parseQuery = require("../middlewares/parse-query")
 module.exports = (router) => {
 
-  router.post("/signup", getUser, (req, res, next) => {
+  router.post("/account/signup", getUser, (req, res, next) => {
+    console.log('req',req.body)
     let user = new User();
-    user.name = req.user.name || "Không rõ";
-    user.email = req.user.email;
-    user.avatar = req.user.avatar || "https://i.imgur.com/6RUJRyM.png";
-
-    User.findOne({ email: req.user.email }, (err, existUser) => {
-      if (err) return next(err);
-
+    user.name = req.body.name || "Không rõ";
+    user.email = req.body.email;
+    user.avatar = req.body.avatar || "https://i.imgur.com/6RUJRyM.png";
+    user.role = req.body.role
+    user.isAccepted = false
+    User.findOne({ email: req.user.email },async (err, existUser) => {
+      if (err) return next({
+        message: err
+      });
       if (existUser) {
         res.status(403).json({
           success: false,
           message: "Account with that email is already exist"
         });
       } else {
-        user.save();
+        await user.save();
 
         res.json({
-          success: true,
-          user
+          results:{
+            object: user
+          }
         });
       }
     });
   });
 
-  router.post("/login", getUser, (req, res, next) => {
+  router.post("/account/login", getUser, (req, res, next) => {
     User.findOne({ email: req.user.email }, (err, user) => {
-      if (err) return next(err);
+      if (err) return next({
+        message: err
+      });
 
       if (!user) {
         res.status(403).json({
@@ -42,8 +48,9 @@ module.exports = (router) => {
         });
       } else {
         res.json({
-          success: true,
-          user
+          results:{
+            object: user
+          }
         });
       }
     })
@@ -76,6 +83,24 @@ module.exports = (router) => {
           });
         }
       });
+    }).delete(getUser, (req, res, next) => {
+      let items = JSON.parse(req.query.items)
+      console.log('items',items)
+      if(!items || items.length == 0){ 
+        res.status(403).json({
+          error:'ids is empty'
+        })
+      }else{
+        User.remove({'_id':{'$in':items}}, (err,result)=>{
+          if(err) return res.status(403).json({
+            err
+          })
+          res.json({
+            success:true,
+            result
+          })
+        })
+      }
     })
   router
     .route("/user/:id")
@@ -102,8 +127,9 @@ module.exports = (router) => {
       let data = {}
       if (req.body.name) data.name = req.body.name
       if (req.body.avatar) data.avatar = req.body.avatar
-      if (req.body.role) data.role = req.body.role
-
+      if (req.body.role && (req.body.role == "manager" || req.body.role == "staff")) data.role = req.body.role
+      if (req.body.isAccepted != undefined) data.isAccepted = req.body.isAccepted
+      if (req.body.isDenied != undefined) data.isDenied = req.body.isDenied
       if (Object.keys(data).length == 0) {
         res.status(403).json({
           success: false,
