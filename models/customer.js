@@ -7,7 +7,7 @@ const CustomerSchema = new Schema({
   email: String,
   name: String,
   phone: String,
-  sex: Number,
+  sex: String,
   status: Number,
   number_of_bill: Number,
   amount_of_purchase: Number,

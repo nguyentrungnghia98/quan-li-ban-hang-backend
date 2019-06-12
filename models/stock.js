@@ -5,7 +5,10 @@ const StockSchema = new Schema({
   name:String,
   provider_name:String,
   products: [{
-    type:Schema.Types.ObjectId, ref: "Product"
+    number_product: Number,
+    product: {
+      type:Schema.Types.ObjectId, ref: "Product"
+    }
   }],
   total_items: Number,
   status:Number,

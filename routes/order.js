@@ -3,19 +3,46 @@ var await = require('asyncawait/await');
 const { ObjectID } = require("mongodb");
 const getUser = require("../middlewares/get-user");
 const Order = require("../models/order");
+const parseQuery = require("../middlewares/parse-query")
 
+
+function calTotalAmount(products,SubFee){
+  let total = 0;
+  let subFee = SubFee || 0
+
+  if(products){
+    products.forEach(el=>{
+      total += el.number_product * el.product.price
+    })
+    return  subFee +  total
+  }else{
+    return  subFee
+  }
+}
 module.exports = (router) => {
 
   router
     .route("/order")
-    .get(getUser, (req, res, next) => {
-      Order.find({}, (err, orders) => {
+    .get(getUser, parseQuery, (req, res, next) => {
+      Order.find(req.filter,{},req.pagination,async (err, orders) => {
         if (err) return next(err);
         if (orders) {
+          let curPage = parseInt(req.query.page) +1
+          let count = await Order.count()
+          console.log('count',count)
           res.json({
-            success: true,
-            orders,
-            message: "Successful!"
+            pagination:{
+              current_page: curPage,
+              next_page: curPage + 1,
+              prev_page: curPage - 1,
+              limit: req.pagination.limit
+            },
+            results:{
+              objects:{
+                count: count,
+                rows: orders,
+              }
+            }
           });
         } else {
           res.json({
@@ -25,14 +52,8 @@ module.exports = (router) => {
         }
       });
     })
-    .post(getUser, (req, res, next) => {
-      if(!req.body.customer) {
-        res.status(403).json({
-          success: false,
-          message: "Property customer is required!"
-        });
-        return next()
-      } 
+    .post(getUser, async (req, res, next) => {
+
       if(!req.body.receiver_name) {
         res.status(403).json({
           success: false,
@@ -47,23 +68,37 @@ module.exports = (router) => {
         });
         return next()
       }  
-      if(!req.body.receiver_address) {
+
+      if(!req.body.products) {
         res.status(403).json({
           success: false,
-          message: "Property receiver_address is required!"
+          message: "Property products is required!"
         });
         return next()
       } 
-
+      let products = null
+      if(req.body.products && req.body.products.length > 0){
+        products = req.body.products.map(el=> {
+          return {
+            number_product: el.number_product,
+            product: ObjectID(el.product._id)
+          }
+        })
+      } 
+      let code = await  Order.count() 
       let order = new Order({
-        customer: req.body.customer,
-        note: req.body.note || "",
+        code: `ORDER${code + 1}`,
+        note: req.body.note || "", 
         is_pick_at_store: req.body.is_pick_at_store,
         receiver_name: req.body.receiver_name,
-        status: req.body.status,
+        status: req.body.status || "1",
         receiver_phone: req.body.receiver_phone,
         receiver_address: req.body.receiver_address,
-        products: req.body.products,
+        products: products,
+        subFee: req.body.subFee,
+        text:req.body.noteSubFee,
+        channelSelect:req.body.channelSelect,
+        totalAmount: calTotalAmount(req.body.products, req.body.subFee)
       })
       order.save(err => {
         if (err) {
@@ -76,11 +111,29 @@ module.exports = (router) => {
         }
       })
       res.json({
-        success: true,
-        data:{
-          order
+        results:{
+          object: order
         }
       });
+    })
+    .delete(getUser, (req, res, next) => {
+      let items = JSON.parse(req.query.items)
+      console.log('items',items)
+      if(!items || items.length == 0){ 
+        res.status(403).json({
+          error:'ids is empty'
+        })
+      }else{
+        Order.remove({'_id':{'$in':items}}, (err,result)=>{
+          if(err) return res.status(403).json({
+            err
+          })
+          res.json({
+            success:true,
+            result
+          })
+        })
+      }
     })
   router
     .route("/order/:id")
@@ -91,22 +144,20 @@ module.exports = (router) => {
         if (err) return next(err);
         if (order) {
           res.json({
-            success: true,
-            order,
-            message: "Successful Manipulation!"
+            results:{
+              object: order
+            }
           });
         } else {
-          res.json({
+          res.status(403).json({
             success: false,
             message: "order is not exist!"
           });
         }
-      })
+      }).populate('products.product');
     })
-    .post(getUser, (req, res, next) => {
+    .put(getUser, (req, res, next) => {
       let data = {}
-
-      if (req.body.customer) data.customer = req.body.customer
       if (req.body.note) data.note = req.body.note
       if (req.body.is_pick_at_store) data.is_pick_at_store = req.body.is_pick_at_store
       if (req.body.receiver_name) data.receiver_name = req.body.receiver_name
@@ -114,8 +165,22 @@ module.exports = (router) => {
       if (req.body.receiver_phone) data.receiver_phone = req.body.receiver_phone
       if (req.body.receiver_address) data.receiver_address = req.body.receiver_address
       if (req.body.products) data.products = req.body.products
+      if (req.body.subFee) data.subFee = req.body.subFee
+      if (req.body.text) data.text = req.body.text
+      if (req.body.channelSelect) data.channelSelect = req.body.channelSelect
+      data.totalAmount =  calTotalAmount(req.body.products, req.body.subFee)
+      let products = null
+      if(req.body.products && req.body.products.length > 0){
+        products = req.body.products.map(el=> {
+          return {
+            number_product: el.number_product,
+            product: ObjectID(el.product._id)
+          }
+        })
+        data.products = products
+      } 
       if (Object.keys(data).length == 0) {
-        res.json({
+        res.status(403).json({
           success: false,
           message: "Request sai!"
         });
@@ -127,12 +192,12 @@ module.exports = (router) => {
           }));
           if (order) {
             res.json({
-              success: true,
-              order,
-              message: "Successful Manipulation!"
+              results:{
+                object: order
+              }
             });
           } else {
-            res.json({
+            res.status(403).json({
               success: false,
               message: "order is not exist!"
             });

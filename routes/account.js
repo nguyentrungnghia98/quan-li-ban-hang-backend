@@ -3,7 +3,7 @@ var await = require('asyncawait/await');
 const { ObjectID } = require("mongodb");
 const getUser = require("../middlewares/get-user");
 const User = require("../models/user");
-
+const parseQuery = require("../middlewares/parse-query")
 module.exports = (router) => {
 
   router.post("/signup", getUser, (req, res, next) => {
@@ -16,7 +16,7 @@ module.exports = (router) => {
       if (err) return next(err);
 
       if (existUser) {
-        res.json({
+        res.status(403).json({
           success: false,
           message: "Account with that email is already exist"
         });
@@ -36,7 +36,7 @@ module.exports = (router) => {
       if (err) return next(err);
 
       if (!user) {
-        res.json({
+        res.status(403).json({
           success: false,
           message: "User not found!"
         });
@@ -50,18 +50,27 @@ module.exports = (router) => {
   });
 
   router
-    .route("/users")
-    .get(getUser, (req, res, next) => {
+    .route("/user")
+    .get(getUser, parseQuery, (req, res, next) => {
       User.find({}, (err, users) => {
         if (err) return next(err);
         if (users) {
           res.json({
-            success: true,
-            users,
-            message: "Successful!"
+            pagination:{
+              current_page: 1,
+              next_page: 2,
+              prev_page: 1,
+              limit: -1
+            },
+            results:{
+              objects:{
+                count: users.length,
+                rows: users,
+              }
+            }
           });
         } else {
-          res.json({
+          res.status(403).json({
             success: false,
             message: "Users is not exist!"
           });
@@ -69,7 +78,7 @@ module.exports = (router) => {
       });
     })
   router
-    .route("/users/:id")
+    .route("/user/:id")
     .get(getUser, (req, res, next) => {
       //5cf3f5f2a66abe460cadb890
       console.log('Request Id:', req.params.id);
@@ -77,26 +86,26 @@ module.exports = (router) => {
         if (err) return next(err);
         if (user) {
           res.json({
-            success: true,
-            user,
-            message: "Successful Manipulation!"
+            results:{
+              object: user
+            }
           });
         } else {
-          res.json({
+          res.status(403).json({
             success: false,
             message: "Users is not exist!"
           });
         }
       })
     })
-    .post(getUser, (req, res, next) => {
+    .put(getUser, (req, res, next) => {
       let data = {}
       if (req.body.name) data.name = req.body.name
-      if (req.body.avatar) data.name = req.body.avatar
-      if (req.body.role) data.name = req.body.role
+      if (req.body.avatar) data.avatar = req.body.avatar
+      if (req.body.role) data.role = req.body.role
 
       if (Object.keys(data).length == 0) {
-        res.json({
+        res.status(403).json({
           success: false,
           message: "Request sai!"
         });
@@ -105,12 +114,12 @@ module.exports = (router) => {
           if (err) return next(err);
           if (user) {
             res.json({
-              success: true,
-              user,
-              message: "Successful Manipulation!"
+              results:{
+                object: user
+              }
             });
           } else {
-            res.json({
+            res.status(403).json({
               success: false,
               message: "Users is not exist!"
             });

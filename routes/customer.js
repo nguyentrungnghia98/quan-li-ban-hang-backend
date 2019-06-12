@@ -3,22 +3,34 @@ var await = require('asyncawait/await');
 const { ObjectID } = require("mongodb");
 const getUser = require("../middlewares/get-user");
 const Customer = require("../models/customer");
-
+const parseQuery = require("../middlewares/parse-query")
 module.exports = (router) => {
 
   router
     .route("/customer")
-    .get(getUser, (req, res, next) => {
-      Customer.find({}, (err, customers) => {
+    .get(getUser,parseQuery, (req, res, next) => {
+      Customer.find(req.filter,{},req.pagination,async (err, customers) => {
         if (err) return next(err);
         if (customers) {
+          let curPage = parseInt(req.query.page) +1
+          let count = await Customer.count()
+          console.log('count',count)
           res.json({
-            success: true,
-            customers,
-            message: "Successful!"
+            pagination:{
+              current_page: curPage,
+              next_page: curPage + 1,
+              prev_page: curPage - 1,
+              limit: req.pagination.limit
+            },
+            results:{
+              objects:{
+                count: count,
+                rows: customers,
+              }
+            }
           });
         } else {
-          res.json({
+          res.status(403).json({
             success: false,
             message: "Customers is not exist!"
           });
@@ -68,11 +80,29 @@ module.exports = (router) => {
         }
       })
       res.json({
-        success: true,
-        data:{
-          customer
+        results:{
+          object: customer
         }
       });
+    })
+    .delete(getUser, (req, res, next) => {
+      let items = JSON.parse(req.query.items)
+      console.log('items',items)
+      if(!items || items.length == 0){ 
+        res.status(403).json({
+          error:'ids is empty'
+        })
+      }else{
+        Customer.remove({'_id':{'$in':items}}, (err,result)=>{
+          if(err) return res.status(403).json({
+            err
+          })
+          res.json({
+            success:true,
+            result
+          })
+        })
+      }
     })
   router
     .route("/customer/:id")
@@ -82,19 +112,19 @@ module.exports = (router) => {
         if (err) return next(err);
         if (customer) {
           res.json({
-            success: true,
-            customer,
-            message: "Successful Manipulation!"
+            results:{
+              object: customer
+            }
           });
         } else {
-          res.json({
+          res.status(403).json({
             success: false,
             message: "customer is not exist!"
           });
         }
       })
     })
-    .post(getUser, (req, res, next) => {
+    .put(getUser, (req, res, next) => {
       let data = {}
       if (req.body.name) data.name = req.body.name
       if (req.body.avatar) data.avatar = req.body.avatar
@@ -109,19 +139,19 @@ module.exports = (router) => {
           message: "Request sai!"
         });
       }else{
-        customer.findByIdAndUpdate(req.params.id, data, { new: true }, (err, customer) => {
+        Customer.findByIdAndUpdate(req.params.id, data, { new: true }, (err, customer) => {
           if (err) return next(res.status(500).json({
             success:false,
             message:err
           }));
           if (customer) {
             res.json({
-              success: true,
-              customer,
-              message: "Successful Manipulation!"
+              results:{
+                object: customer
+              }
             });
           } else {
-            res.json({
+            res.status(403).json({
               success: false,
               message: "customer is not exist!"
             });

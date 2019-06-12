@@ -3,25 +3,30 @@ var await = require('asyncawait/await');
 const { ObjectID } = require("mongodb");
 const getUser = require("../middlewares/get-user");
 const Product = require("../models/product");
+const parseQuery = require("../middlewares/parse-query")
 
 module.exports = (router) => {
 
   router
     .route("/product")
-    .get(getUser, (req, res, next) => {
-      Product.find({}, (err, products) => {
+    .get(getUser,parseQuery,  (req, res, next) => {
+      console.log('filter',req.filter,' page',req.pagination)
+      Product.find(req.filter,{},req.pagination,async (err, products) => {
         if (err) return next(err);
         if (products) {
+          let curPage = parseInt(req.query.page) +1
+          let count = await Product.count()
+          console.log('count',count)
           res.json({
             pagination:{
-              current_page: 1,
-              next_page: 2,
-              prev_page: 0,
-              limit: 10
+              current_page: curPage,
+              next_page: curPage + 1,
+              prev_page: curPage - 1,
+              limit: req.pagination.limit
             },
             results:{
               objects:{
-                count: products.length,
+                count: count,
                 rows: products,
               }
             }
@@ -49,14 +54,16 @@ module.exports = (router) => {
         });
         return next()
       }   
-      
+      let categories = null
+      if(req.body.categories && req.body.categories.length > 0) categories = req.body.categories.map(el=> ObjectID(el))
       let product = new Product({
         name: req.body.name,
         description: req.body.description || "",
         list_image: req.body.list_image,
         price: req.body.price,
         status: req.body.status || 1,
-        categories: req.body.categories,
+        categories: categories,
+        thumb: req.body.list_image[0] || null
       })
       await product.save(err => {
         if (err) {
@@ -88,9 +95,9 @@ module.exports = (router) => {
           if(err) return res.status(403).json({
             err
           })
-          req.json({
+          res.json({
             success:true,
-            results
+            result
           })
         })
       }
@@ -117,7 +124,8 @@ module.exports = (router) => {
         }
       })
     })
-    .post(getUser, (req, res, next) => {
+    .put(getUser, (req, res, next) => {
+      console.log('Request Id:', req.params.id);
       let data = {}
       if (req.body.name) data.name = req.body.name
       if (req.body.description) data.description = req.body.description
@@ -125,9 +133,14 @@ module.exports = (router) => {
       if (req.body.price) data.price = req.body.price
       if (req.body.status) data.status = req.body.status
       if (req.body.number_product) data.number_product = req.body.number_product
-      if (req.body.categories) data.categories = req.body.categories
+      let categories = null
+      if(req.body.categories && req.body.categories.length > 0){
+        categories = req.body.categories.map(el=> ObjectID(el))
+        data.categories = categories
+      } 
+      console.log('data',data)
       if (Object.keys(data).length == 0) {
-        res.json({
+        res.status(403).json({
           success: false,
           message: "Request sai!"
         });

@@ -3,38 +3,42 @@ var await = require('asyncawait/await');
 const { ObjectID } = require("mongodb");
 const getUser = require("../middlewares/get-user");
 const Category = require("../models/category");
-
+const parseQuery = require("../middlewares/parse-query")
 module.exports = (router) => {
 
   router
     .route("/category")
-    .get(getUser, (req, res, next) => {
-      Category.find({}, (err, categories) => {
+    .get(getUser, parseQuery, (req, res, next) => {
+      console.log('filter',req.filter,' page',req.pagination)
+      Category.find(req.filter,{},req.pagination,async (err, categories) => {
         if (err) return next(err);
         if (categories) {
+          let curPage = parseInt(req.query.page) +1
+          let count = await Category.count()
+          console.log('count',count)
           res.json({
             pagination:{
-              current_page: 1,
-              next_page: 2,
-              prev_page: 0,
-              limit: 10
+              current_page: curPage,
+              next_page: curPage + 1,
+              prev_page: curPage - 1,
+              limit: req.pagination.limit
             },
             results:{
               objects:{
-                count: categories.length,
+                count: count,
                 rows: categories,
               }
             }
           });
         } else {
-          res.json({
+          res.status(403).json({
             success: false,
             message: "categories is not exist!"
           });
         }
       });
     })
-    .post(getUser, (req, res, next) => {
+    .post(getUser,async (req, res, next) => {
       if(!req.body.name) {
         res.status(403).json({
           success: false,
@@ -49,7 +53,7 @@ module.exports = (router) => {
         image: req.body.image,
         status: req.body.status || 1,
       })
-      category.save(err => {
+      await category.save(err => {
         if (err) {
           console.log(err)
           res.status(403).json({
@@ -60,11 +64,29 @@ module.exports = (router) => {
         }
       })
       res.json({
-        success: true,
-        data:{
-          category
+        results:{
+          object: category
         }
       });
+    })
+    .delete(getUser, (req, res, next) => {
+      let items = JSON.parse(req.query.items)
+      console.log('items',items)
+      if(!items || items.length == 0){ 
+        res.status(403).json({
+          error:'ids is empty'
+        })
+      }else{
+        Category.remove({'_id':{'$in':items}}, (err,result)=>{
+          if(err) return res.status(403).json({
+            err
+          })
+          res.json({
+            success:true,
+            result
+          })
+        })
+      }
     })
   router
     .route("/category/:id")
@@ -75,26 +97,26 @@ module.exports = (router) => {
         if (err) return next(err);
         if (category) {
           res.json({
-            success: true,
-            category,
-            message: "Successful Manipulation!"
+            results:{
+              object: category
+            }
           });
         } else {
-          res.json({
+          res.status(403).json({
             success: false,
             message: "category is not exist!"
           });
         }
       })
     })
-    .post(getUser, (req, res, next) => {
+    .put(getUser, (req, res, next) => {
       let data = {}
       if (req.body.name) data.name = req.body.name
       if (req.body.description) data.description = req.body.description
       if (req.body.image) data.list_image = req.body.image
       if (req.body.status) data.status = req.body.status
       if (Object.keys(data).length == 0) {
-        res.json({
+        res.status(403).json({
           success: false,
           message: "Request body failed!"
         });
@@ -106,12 +128,12 @@ module.exports = (router) => {
           }));
           if (category) {
             res.json({
-              success: true,
-              category,
-              message: "Successful Manipulation!"
+              results:{
+                object: category
+              }
             });
           } else {
-            res.json({
+            res.status(403).json({
               success: false,
               message: "category is not exist!"
             });

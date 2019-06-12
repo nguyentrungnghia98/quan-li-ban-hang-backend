@@ -3,22 +3,35 @@ var await = require('asyncawait/await');
 const { ObjectID } = require("mongodb");
 const getUser = require("../middlewares/get-user");
 const Promotion = require("../models/promotion");
+const parseQuery = require("../middlewares/parse-query")
 
 module.exports = (router) => {
 
   router
     .route("/promotion")
-    .get(getUser, (req, res, next) => {
-      Promotion.find({}, (err, promotions) => {
+    .get(getUser,parseQuery,  (req, res, next) => {
+      Promotion.find(req.filter,{},req.pagination,async (err, promotions) => {
         if (err) return next(err);
         if (promotions) {
+          let curPage = parseInt(req.query.page) +1
+          let count = await Promotion.count()
+          console.log('count',count)
           res.json({
-            success: true,
-            promotions,
-            message: "Successful!"
+            pagination:{
+              current_page: curPage,
+              next_page: curPage + 1,
+              prev_page: curPage - 1,
+              limit: req.pagination.limit
+            },
+            results:{
+              objects:{
+                count: count,
+                rows: promotions,
+              }
+            }
           });
         } else {
-          res.json({
+          res.status(403).json({
             success: false,
             message: "promotions is not exist!"
           });
@@ -69,11 +82,30 @@ module.exports = (router) => {
         }
       })
       res.json({
-        success: true,
-        data:{
-          promotion
+        results:{
+          object: promotion
         }
       });
+    })
+    .delete(getUser, (req, res, next) => {
+      console.log('query',req.query)
+      let items = JSON.parse(req.query.items)
+      console.log('items',items)
+      if(!items || items.length == 0){ 
+        res.status(403).json({
+          error:'ids is empty'
+        })
+      }else{
+        Promotion.remove({'_id':{'$in':items}}, (err,result)=>{
+          if(err) return res.status(403).json({
+            err
+          })
+          res.json({
+            success:true,
+            result
+          })
+        })
+      }
     })
   router
     .route("/promotion/:id")
@@ -84,19 +116,19 @@ module.exports = (router) => {
         if (err) return next(err);
         if (promotion) {
           res.json({
-            success: true,
-            promotion,
-            message: "Successful Manipulation!"
+            results:{
+              object: promotion
+            }
           });
         } else {
-          res.json({
+          res.status(403).json({
             success: false,
             message: "promotion is not exist!"
           });
         }
       })
     })
-    .post(getUser, (req, res, next) => {
+    .put(getUser, (req, res, next) => {
       let data = {}
       if (req.body.name) data.name = req.body.name
       if (req.body.code) data.code = req.body.code
@@ -108,7 +140,7 @@ module.exports = (router) => {
       if (req.body.limit_per_user) data.limit_per_user = req.body.limit_per_user
       if (req.body.number) data.number = req.body.number
       if (Object.keys(data).length == 0) {
-        res.json({
+        res.status(403).json({
           success: false,
           message: "Request sai!"
         });
@@ -120,12 +152,12 @@ module.exports = (router) => {
           }));
           if (promotion) {
             res.json({
-              success: true,
-              promotion,
-              message: "Successful Manipulation!"
+              results:{
+                object: promotion
+              }
             });
           } else {
-            res.json({
+            res.status(403).json({
               success: false,
               message: "promotion is not exist!"
             });
