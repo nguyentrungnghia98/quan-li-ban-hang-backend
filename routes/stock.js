@@ -132,7 +132,7 @@ module.exports = (router) => {
             message: "stock is not exist!"
           });
         }
-      })
+      }).sort({created: -1})
       .populate('products.product');
     })
     .put(getUser, (req, res, next) => {

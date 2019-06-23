@@ -36,7 +36,7 @@ module.exports = (router) => {
             message: "categories is not exist!"
           });
         }
-      });
+      }).sort({created: -1});
     })
     .post(getUser,async (req, res, next) => {
       if(!req.body.name) {

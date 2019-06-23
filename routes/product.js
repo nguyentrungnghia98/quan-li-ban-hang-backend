@@ -37,7 +37,8 @@ module.exports = (router) => {
             message: "Products is not exist!"
           });
         }
-      });
+      }).sort({created: -1}).populate('categories')
+      ;
     })
     .post(getUser,async (req, res, next) => {
       if(!req.body.name) {

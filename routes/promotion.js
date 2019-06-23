@@ -36,7 +36,7 @@ module.exports = (router) => {
             message: "promotions is not exist!"
           });
         }
-      });
+      }).sort({created: -1});
     })
     .post(getUser, (req, res, next) => {
       if(!req.body.name) {

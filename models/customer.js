@@ -14,9 +14,6 @@ const CustomerSchema = new Schema({
   last_date_order:Date,
   latest_address: String,
   favorite_address: String,
-  latest_bill: {
-    type:Schema.Types.ObjectId, ref: "Order"
-  },
 
   updated: { type: Date, default: Date.now },
   created: { type: Date, default: Date.now }

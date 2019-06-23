@@ -6,7 +6,13 @@ const OrderSchema = new Schema({
   note:String,
   address: String,
   is_pick_at_store: Boolean,
-  receiver_name: String,
+  customer:{
+    type:Schema.Types.ObjectId, ref: "Customer"
+  },
+  promotion:{
+    type:Schema.Types.ObjectId, ref: "Promotion"
+  },
+  receiver_name: String, 
   receiver_phone: String,
   receiver_address: String,
   products: [{
