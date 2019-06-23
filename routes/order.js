@@ -93,7 +93,7 @@ module.exports = (router) => {
         is_pick_at_store: req.body.is_pick_at_store,
         // receiver_name: req.body.receiver_name,
         // receiver_phone: req.body.receiver_phone,
-        // receiver_address: req.body.receiver_address,
+        receiver_address: req.body.receiver_address,
         customer: ObjectID(req.body.customer),
         promotion: req.body.promotion ? ObjectID(req.body.promotion): null,
         status: req.body.status || "1",
