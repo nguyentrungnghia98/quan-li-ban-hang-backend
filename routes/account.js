@@ -4,6 +4,7 @@ const { ObjectID } = require("mongodb");
 const getUser = require("../middlewares/get-user");
 const User = require("../models/user");
 const parseQuery = require("../middlewares/parse-query")
+var admin = require('firebase-admin');
 module.exports = (router) => {
 
   router.post("/account/signup", getUser, (req, res, next) => {
@@ -36,17 +37,19 @@ module.exports = (router) => {
   });
 
   router.post("/account/login", getUser, (req, res, next) => {
-    User.findOne({ email: req.user.email }, (err, user) => {
+    User.findOne({ email: req.user.email }, async (err, user) => {
       if (err) return next({
         message: err
       });
 
       if (!user) {
-        res.status(403).json({
+        res.status(403).json({  
           success: false,
           message: "User not found!"
         });
       } else {
+        user.uid = req.user.uid
+        await user.save()
         res.json({
           results:{
             object: user
@@ -83,7 +86,7 @@ module.exports = (router) => {
           });
         }
       });
-    }).delete(getUser, (req, res, next) => {
+    }).delete(getUser, async (req, res, next) => {
       let items = JSON.parse(req.query.items)
       console.log('items',items)
       if(!items || items.length == 0){ 
@@ -91,9 +94,16 @@ module.exports = (router) => {
           error:'ids is empty'
         })
       }else{
-        User.remove({'_id':{'$in':items}}, (err,result)=>{
+        let user = await User.findById(items[0])
+        user.remove((err,result)=>{
           if(err) return res.status(403).json({
             err
+          })
+          var uid = user.uid;
+          admin.auth().deleteUser(uid).then(()=>{
+
+          }).catch(err=>{
+            console.log('err',err)
           })
           res.json({
             success:true,

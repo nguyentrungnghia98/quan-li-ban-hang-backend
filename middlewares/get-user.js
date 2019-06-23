@@ -12,7 +12,8 @@ module.exports = (req, res, next) => {
                 var uid = decodedToken.uid;
                 admin.auth().getUser(uid).then(user => {
                    req.user = user
-                  //  console.log("----------------------req from middleware",req.user)
+
+                   //console.log("----------------------req from middleware",req.user)
                     next();
                 })
             }).catch(err => {

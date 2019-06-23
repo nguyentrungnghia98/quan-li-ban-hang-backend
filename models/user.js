@@ -10,6 +10,7 @@ const UserSchema = new Schema({
   avatar: String,
   isAccepted: Boolean,
   isDenied: Boolean,
+  uid:String,
   updated: { type: Date, default: Date.now },
   created: { type: Date, default: Date.now }
 });
